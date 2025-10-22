@@ -62,8 +62,34 @@ export class AppService {
       return cachedIconUrl;
     }
 
+    // 先尝试 HEAD 检查 Content-Type（部分站点可能不支持 HEAD，会被 catch）
+    // 如果不是html页面，比如是一个exe的下载链接则拒绝
+    let headRes;
+    try {
+      headRes = await lastValueFrom(
+        this.httpService.head(new URL(url).href, {
+          maxRedirects: 10,
+          validateStatus: () => true,
+        }),
+      );
+    } catch (err) {
+      headRes = null;
+    }
+
+    const isHtmlContentType = (ct?: string) =>
+      typeof ct === 'string' && (/html|xml/i.test(ct) || /application\/xhtml\+xml/i.test(ct));
+
+    if (headRes && headRes.headers) {
+      const headCt = headRes.headers['content-type'];
+      if (headCt && !isHtmlContentType(headCt)) {
+        this.logger.warn(`URL ${url} HEAD content-type is not HTML: ${headCt}`);
+        throw new Error('Target URL does not return HTML');
+      }
+    }
+
     let iconUrl = '';
     const html = lastValueFrom(
+
       this.httpService.get(new URL(url).href, {
         responseType: 'text',
         maxRedirects: 10,
