@@ -21,6 +21,13 @@ export class AppService {
   async getFavicon(url: string): Promise<StreamableFile> {
     this.logger.log(`Get favicon from ${url}`);
 
+    // 先尝试从缓存获取
+    const cachedImage = await this.getImageCache(url);
+    if (cachedImage) {
+      this.logger.log(`Using image cached for ${url}`);
+      return new StreamableFile(cachedImage, { type: 'image/x-icon' });
+    }
+
     const faviconUrl = await this.getFaviconFromHtmlPage(url);
     this.logger.log(`Favicon url is ${faviconUrl}`);
 
@@ -32,7 +39,10 @@ export class AppService {
       }),
     );
 
-    await this.setCache(url, faviconUrl);
+    // 把响应response的图片数据放到缓存中方便下次快速使用
+    const buffer = Buffer.from((await response).data);
+
+    this.setImageCache(url, buffer);
 
     return new StreamableFile((await response).data, {
       type: (await response).headers['content-type'],
@@ -46,7 +56,7 @@ export class AppService {
    */
   private async getFaviconFromHtmlPage(url: string): Promise<string> {
     // 先尝试从缓存获取
-    const cachedIconUrl = await this.cacheManager.get<string>(url);
+    const cachedIconUrl = await this.getIconUrlCache(url);
     if (cachedIconUrl) {
       this.logger.log(`Using cached favicon URL: ${cachedIconUrl}`);
       return cachedIconUrl;
@@ -77,10 +87,41 @@ export class AppService {
       iconUrl = new URL('/favicon.ico', new URL(url)).href;
     }
     this.logger.log(`Icon url is ${iconUrl}`);
+    this.setIconUrlCache(url, iconUrl);
     return iconUrl;
   }
 
-  private async setCache(key: string, value: string): Promise<void> {
-    await this.cacheManager.set(key, value, 1000 * 60 * 60 * 24);
+  /**
+   * 将图片数据存入缓存
+   */
+  private async setImageCache(key: string, value: Buffer): Promise<void> {
+    await this.cacheManager.set(`Img ${key}`, value, 1000 * 60 * 60 * 24);
+  }
+
+  /**
+   * 将图标URL存入缓存
+   */
+  private async setIconUrlCache(key: string, value: string): Promise<void> {
+    await this.cacheManager.set(`Url ${key}`, value, 1000 * 60 * 60 * 24);
+  }
+
+  /**
+   * 获取图片缓存
+   * @param key key
+   * @returns 图片数据或null
+   */
+  private async getImageCache(key: string): Promise<Buffer | null> {
+    const cachedImage = await this.cacheManager.get<Buffer>(`Img ${key}`);
+    return cachedImage ?? null;
+  }
+
+  /**
+   * 获取图片url
+   * @param key key
+   * @returns 图片url
+   */
+  private async getIconUrlCache(key: string): Promise<string | null> {
+    const cachedUrl = await this.cacheManager.get<string>(`Url ${key}`);
+    return cachedUrl ?? null;
   }
 }
