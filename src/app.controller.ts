@@ -28,7 +28,7 @@ export class AppController {
       const result = await this.appService.getFavicon(url);
       return result;
     } catch (err) {
-      // this.logger.log(err);
+      this.logger.log(err);
       const file = createReadStream(
         join(process.cwd(), '/src/public/default-url.svg'),
       );

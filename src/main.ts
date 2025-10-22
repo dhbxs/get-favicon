@@ -5,6 +5,7 @@ import { NestFactory } from '@nestjs/core';
 // } from '@nestjs/platform-fastify';
 
 import { AppModule } from './app.module';
+import { ConsoleLogger } from '@nestjs/common';
 
 async function bootstrap() {
   const app = await NestFactory.create(
@@ -12,7 +13,11 @@ async function bootstrap() {
     // new FastifyAdapter({ logger: true }),
     {
       abortOnError: false,
-      logger: ['log', 'fatal', 'error', 'warn', 'debug', 'verbose'],
+      logger: new ConsoleLogger({
+        json: true,
+        timestamp: true,
+        logLevels: ['log', 'fatal', 'error', 'warn', 'debug', 'verbose'],
+      }),
       cors: true,
     },
   );

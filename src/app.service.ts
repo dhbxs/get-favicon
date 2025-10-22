@@ -10,7 +10,7 @@ export class AppService {
   @Inject(CACHE_MANAGER)
   private cacheManager: Cache;
 
-  constructor(private readonly httpService: HttpService) {}
+  constructor(private readonly httpService: HttpService) { }
 
   private readonly logger = new Logger(AppService.name);
 
@@ -53,9 +53,15 @@ export class AppService {
     }
 
     let iconUrl = '';
+    const html = lastValueFrom(
+      this.httpService.get(new URL(url).href, {
+        responseType: 'text',
+        maxRedirects: 10,
+        validateStatus: () => true,
+      })
+    );
 
-    const $ = await cheerio.fromURL(new URL(url));
-    this.logger.log(`HTML page is ${$.html()}`);
+    const $ = cheerio.load((await html).data);
 
     const appleTouchIcon = $('link[rel="apple-touch-icon"]').attr('href');
     const favicon = $('link[rel="icon"]').attr('href');
@@ -70,6 +76,7 @@ export class AppService {
     } else {
       iconUrl = new URL('/favicon.ico', new URL(url)).href;
     }
+    this.logger.log(`Icon url is ${iconUrl}`);
     return iconUrl;
   }
 
